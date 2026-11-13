@@ -1,0 +1,106 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/onest';
+@import '@fontsource/kaushan-script/400.css';
+@import '@fontsource/oswald/600.css';
+
+@theme {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --font-sans: 'Onest Variable', system-ui, sans-serif;
+  --font-plate: 'Oswald', sans-serif;
+  --font-plate-script: 'Kaushan Script', cursive;
+
+  --color-background: #0A0A0A;
+  --color-foreground: #FAFAFA;
+  --color-card: #141414;
+  --color-popover: #171717;
+  --color-muted: #1C1C1C;
+  --color-muted-foreground: #A3A3A3;
+  --color-secondary: #262626;
+  --color-border: #262626;
+  --color-input: #2E2E2E;
+  --color-primary: #5078D7;
+  --color-primary-foreground: #FAFAFA;
+  --color-cobalt: #5078D7;
+  --color-cobalt-foreground: #7C9BE4;
+  --color-cobalt-hover: #4569C9;
+  --color-success: #22C55E;
+  --color-success-solid: #16A34A;
+  --color-warning: #EAB308;
+  --color-warning-solid: #D97706;
+  --color-destructive: #EF4444;
+  --color-destructive-solid: #DC2626;
+  --color-plate: #FFFFFF;
+  --color-plate-ink: #1B2A57;
+  --color-plate-script: #2B4C9B;
+  --color-plate-bolt: #D4D4D4;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+
+  --ease-cobalt: cubic-bezier(0.2, 0, 0, 1);
+  --default-transition-timing-function: var(--ease-cobalt);
+
+  --animate-enter: enter 300ms var(--ease-cobalt) both;
+  --animate-rise: rise 200ms var(--ease-cobalt) both;
+
+  @keyframes enter {
+    from {
+      opacity: 0;
+      transform: translateX(0.25rem);
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+  }
+}
+
+html {
+  font-size: clamp(12px, 1.48vh, 22px);
+}
+
+html,
+body {
+  margin: 0;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+::-webkit-scrollbar {
+  width: 0.375rem;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--color-secondary);
+}
+
+input[type='number']::-webkit-inner-spin-button {
+  appearance: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
