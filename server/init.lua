@@ -27,11 +27,13 @@ lib.callback.register('cobalt_garages:open', function(source, garageId)
 end)
 
 lib.callback.register('cobalt_garages:store', function(source, data)
-    if type(data) ~= 'table' or type(data.props) ~= 'table' then return { ok = false, message = 'Nothing to store' } end
+    if type(data) ~= 'table' or type(data.props) ~= 'table' then
+        return { ok = false, message = locale('store.nothing') }
+    end
 
     local props <const> = data.props
 
-    if #json.encode(props) > 16384 then return { ok = false, message = 'Nothing to store' } end
+    if #json.encode(props) > 16384 then return { ok = false, message = locale('store.nothing') } end
 
     props.modelLabel = type(data.label) == 'string' and data.label:sub(1, 60) or nil
 
@@ -43,7 +45,7 @@ lib.callback.register('cobalt_garages:store', function(source, data)
 end)
 
 lib.callback.register('cobalt_garages:takeOut', function(source, data)
-    if type(data) ~= 'table' then return { ok = false, message = 'Nothing to take out' } end
+    if type(data) ~= 'table' then return { ok = false, message = locale('retrieve.nothing') } end
 
     return Vehicles.takeOut(source, {
         garageId = str(data.garageId),
@@ -53,7 +55,7 @@ lib.callback.register('cobalt_garages:takeOut', function(source, data)
 end)
 
 lib.callback.register('cobalt_garages:takeFleet', function(source, data)
-    if type(data) ~= 'table' then return { ok = false, message = 'Nothing to take out' } end
+    if type(data) ~= 'table' then return { ok = false, message = locale('retrieve.nothing') } end
 
     return Vehicles.takeFleet(source, {
         garageId = str(data.garageId),
@@ -71,13 +73,13 @@ lib.callback.register('cobalt_garages:transferTargets', function(source, plate)
 end)
 
 lib.callback.register('cobalt_garages:transfer', function(source, data)
-    if type(data) ~= 'table' then return { ok = false, message = 'Pick a garage' } end
+    if type(data) ~= 'table' then return { ok = false, message = locale('transfer.pick_garage') } end
 
     return Vehicles.transfer(source, { plate = str(data.plate), to = str(data.to) })
 end)
 
 lib.callback.register('cobalt_garages:release', function(source, data)
-    if type(data) ~= 'table' then return { ok = false, message = 'Pick a vehicle' } end
+    if type(data) ~= 'table' then return { ok = false, message = locale('transfer.pick_vehicle') } end
 
     return Vehicles.release(source, {
         garageId = str(data.garageId),
@@ -100,22 +102,24 @@ lib.callback.register('cobalt_garages:canImpound', canImpound)
 
 lib.callback.register('cobalt_garages:impound', function(source, data)
     if type(data) ~= 'table' or not canImpound(source) then
-        return { ok = false, message = 'You cannot impound vehicles' }
+        return { ok = false, message = locale('impound.not_allowed') }
     end
 
     local entity <const> = NetworkGetEntityFromNetworkId(int(data.netId))
 
     if entity == 0 or not DoesEntityExist(entity) or GetEntityType(entity) ~= 2 then
-        return { ok = false, message = 'There is no vehicle here' }
+        return { ok = false, message = locale('impound.no_vehicle') }
     end
 
     local playerCoords <const> = GetEntityCoords(GetPlayerPed(source))
 
-    if #(GetEntityCoords(entity) - playerCoords) > 8.0 then return { ok = false, message = 'Stand next to the vehicle' } end
+    if #(GetEntityCoords(entity) - playerCoords) > 8.0 then
+        return { ok = false, message = locale('impound.stand_closer') }
+    end
 
     for _, playerId in ipairs(GetPlayers()) do
         if GetVehiclePedIsIn(GetPlayerPed(playerId), false) == entity then
-            return { ok = false, message = 'Someone is still in the vehicle' }
+            return { ok = false, message = locale('impound.occupied') }
         end
     end
 
@@ -124,7 +128,7 @@ lib.callback.register('cobalt_garages:impound', function(source, data)
     if not exports.cobalt_core:GetVehicleOwnerByPlate(plate) then
         Vehicles.impound(plate, entity, {})
 
-        return { ok = true, message = 'Unowned vehicle towed' }
+        return { ok = true, message = locale('impound.unowned_towed') }
     end
 
     local reason <const> = str(data.reason):sub(1, 200)
@@ -132,16 +136,16 @@ lib.callback.register('cobalt_garages:impound', function(source, data)
     local impounded <const> = Vehicles.impound(plate, entity, {
         lot = config.defaultImpound,
         fee = math.min(math.max(int(data.fee), 0), config.maxImpoundFee),
-        reason = reason ~= '' and reason or 'Impounded by police',
+        reason = reason ~= '' and reason or locale('impound.reason_police'),
         by = Players.name(source),
         holdUntil = hours > 0 and os.time() + hours * 3600 or nil,
     })
 
-    if not impounded then return { ok = false, message = 'The vehicle could not be impounded' } end
+    if not impounded then return { ok = false, message = locale('impound.failed') } end
 
     exports.cobalt_core:LogPlayer(source, 'garages.impounded', ('Impounded %s'):format(plate), { plate = plate, reason = reason, hours = hours })
 
-    return { ok = true, message = ('%s sent to the impound'):format(plate) }
+    return { ok = true, message = locale('impound.sent', plate) }
 end)
 
 lib.callback.register('cobalt_garages:creator:open', function(source)
@@ -180,7 +184,7 @@ lib.callback.register('cobalt_garages:creator:nearby', function(source)
     return Creator.nearby(source)
 end)
 
-lib.addCommand('garagecreator', { help = 'Open the garage creator' }, function(source)
+lib.addCommand('garagecreator', { help = locale('creator.command') }, function(source)
     if not Players.isAdmin(source) then return end
 
     TriggerClientEvent('cobalt_garages:client:openCreator', source)
@@ -192,7 +196,7 @@ exports('ImpoundVehicle', function(plate, reason, fee, by)
     return Vehicles.impound(plate, entry and entry.entity, {
         lot = config.defaultImpound,
         fee = tonumber(fee) or config.impoundFee,
-        reason = reason or 'Impounded',
+        reason = reason or locale('impound.reason_default'),
         by = by or 'City',
     })
 end)

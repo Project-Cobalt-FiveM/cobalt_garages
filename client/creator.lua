@@ -26,7 +26,7 @@ local function open()
     local data <const> = snapshot()
 
     if not data then
-        core:Notify({ description = 'Only admins can edit garages', type = 'error' })
+        core:Notify({ description = locale('creator.admins_only'), type = 'error' })
 
         return
     end
@@ -40,7 +40,7 @@ Nui.on('creator:save', function(data)
     local result <const> = lib.callback.await('cobalt_garages:creator:save', false, data.garage, data.originalId)
 
     if result?.ok then
-        core:Notify({ description = 'Garage saved', type = 'success' })
+        core:Notify({ description = locale('creator.saved'), type = 'success' })
         result.snapshot = snapshot()
     end
 
@@ -51,12 +51,12 @@ Nui.on('creator:delete', function(data)
     local ok, reason = lib.callback.await('cobalt_garages:creator:delete', false, data.id, data.moveTo)
 
     if not ok then
-        core:Notify({ description = reason or 'The garage could not be deleted', type = 'error' })
+        core:Notify({ description = reason or locale('creator.delete_failed'), type = 'error' })
 
         return { ok = false }
     end
 
-    core:Notify({ description = 'Garage deleted', type = 'success' })
+    core:Notify({ description = locale('creator.deleted'), type = 'success' })
 
     return { ok = true, snapshot = snapshot() }
 end)
@@ -92,7 +92,7 @@ end)
 Nui.on('creator:place', function(data)
     return Placement.run({
         kind = data.kind,
-        garage = data.garage or 'New garage',
+        garage = data.garage or locale('creator.new_garage'),
         index = data.index or 1,
         interact = data.interact,
         spawns = data.spawns or {},

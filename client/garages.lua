@@ -61,8 +61,8 @@ local function vec(point)
     return vector3(point.x, point.y, point.z)
 end
 
-for _, category in pairs(config.blipCategories) do
-    AddTextEntry(('BLIP_CAT_%d'):format(category.id), category.label)
+for name, category in pairs(config.blipCategories) do
+    AddTextEntry(('BLIP_CAT_%d'):format(category.id), locale(('garage.blip_%s'):format(name)))
 end
 
 ---@param garage ClientGarage
@@ -90,7 +90,7 @@ local function targetOptions(garage)
     return {
         {
             name = 'cobalt_garages:open',
-            label = garage.type == 'impound' and 'Open impound' or 'Open garage',
+            label = locale(garage.type == 'impound' and 'garage.open_impound' or 'garage.open_garage'),
             icon = 'fas fa-warehouse',
             distance = 2.5,
             onSelect = function()
@@ -184,7 +184,7 @@ local function drawMarker(garage, handle, point)
 
     local inReach <const> = point.currentDistance <= MARKER_REACH
 
-    setText(inReach and ('[E] %s'):format(garage.label) or nil)
+    setText(inReach and locale('garage.open_prompt', garage.label) or nil)
 
     if inReach and IsControlJustReleased(0, INTERACT) then Menu.open(garage.id) end
 end
@@ -283,13 +283,17 @@ local zoneGarage
 
 local storeKeybind <const> = lib.addKeybind({
     name = 'cobalt_garages_store',
-    description = 'Store your vehicle at a garage',
+    description = locale('garage.store_keybind'),
     defaultKey = config.storeKey,
     disabled = true,
     onReleased = function()
         if not zoneGarage then return end
 
-        local result <const> = Menu.store(zoneGarage.id) or { ok = false, title = 'Garage', message = 'The garage did not answer' }
+        local result <const> = Menu.store(zoneGarage.id) or {
+            ok = false,
+            title = locale('garage.title'),
+            message = locale('garage.no_answer'),
+        }
 
         core:Notify({ title = result.title, description = result.message, type = result.ok and 'success' or 'error' })
     end,
@@ -317,7 +321,7 @@ lib.onCache('vehicle', function(vehicle)
 
         zoneGarage = inside
         storeKeybind:disable(inside == nil)
-        setText(inside and ('[%s] Store %s'):format(config.storeKey, Vehicle.labelOf(vehicle)) or nil)
+        setText(inside and locale('garage.store_prompt', config.storeKey, Vehicle.labelOf(vehicle)) or nil)
     end, 500)
 end)
 

@@ -61,17 +61,17 @@ function Creator.save(source, payload, originalId)
     local renamed <const> = type(originalId) == 'string' and originalId ~= '' and originalId ~= garage.id
 
     if not renamed and type(originalId) ~= 'string' and Garages.get(garage.id) then
-        errors[#errors + 1] = { tab = 'general', field = 'id', message = 'Another garage already uses this ID.' }
+        errors[#errors + 1] = { tab = 'general', field = 'id', message = locale('creator.id_taken') }
     end
 
     if renamed then
         if Garages.get(garage.id) then
-            errors[#errors + 1] = { tab = 'general', field = 'id', message = 'Another garage already uses this ID.' }
+            errors[#errors + 1] = { tab = 'general', field = 'id', message = locale('creator.id_taken') }
         elseif (db.countsByGarage()[originalId] or 0) > 0 then
             errors[#errors + 1] = {
                 tab = 'general',
                 field = 'id',
-                message = 'The ID is locked because vehicles are stored here.',
+                message = locale('creator.id_locked'),
             }
         end
     end
@@ -93,8 +93,8 @@ end
 function Creator.delete(source, id, moveTo)
     local stored <const> = db.countsByGarage()[id] or 0
 
-    if stored > 0 and not (moveTo and Garages.get(moveTo)) then return false, 'Pick where the stored vehicles go' end
-    if not Garages.delete(id, stored > 0 and moveTo or nil) then return false, 'That garage no longer exists' end
+    if stored > 0 and not (moveTo and Garages.get(moveTo)) then return false, locale('creator.pick_move_target') end
+    if not Garages.delete(id, stored > 0 and moveTo or nil) then return false, locale('retrieve.garage_gone') end
 
     exports.cobalt_core:LogPlayer(source, 'garages.deleted', ('Deleted garage %s'):format(id), { garage = id, movedTo = moveTo })
 
@@ -158,7 +158,7 @@ function Creator.check(payload, query)
             found = true,
             name = match.name,
             allowed = false,
-            reason = 'Not in the city right now, so their job and duty are unknown',
+            reason = locale('access.offline'),
         }
     end
 

@@ -27,41 +27,41 @@ end
 function Access.check(source, garage)
     local citizenid <const> = Players.citizenid(source)
 
-    if not citizenid then return { allowed = false, reason = 'Your character is not loaded' } end
+    if not citizenid then return { allowed = false, reason = locale('access.not_loaded') } end
 
-    if Players.isAdmin(source) then return { allowed = true, reason = 'Admins can use every garage' } end
+    if Players.isAdmin(source) then return { allowed = true, reason = locale('access.admin') } end
 
-    if not garage.enabled then return { allowed = false, reason = 'This garage is closed' } end
+    if not garage.enabled then return { allowed = false, reason = locale('access.closed') } end
 
     if garage.propertyId then
         if Housing.hasAccess(citizenid, garage.propertyId) then
-            return { allowed = true, reason = 'Owns the property' }
+            return { allowed = true, reason = locale('access.owns_property') }
         end
 
-        return { allowed = false, reason = 'Only the owner can use this garage' }
+        return { allowed = false, reason = locale('access.owner_only') }
     end
 
-    if garage.access.mode == 'everyone' then return { allowed = true, reason = 'Open to everyone' } end
+    if garage.access.mode == 'everyone' then return { allowed = true, reason = locale('access.everyone') } end
 
     local job <const> = Players.job(source)
 
     if matchOrg(job, garage.access.jobs) then
-        local duty <const> = job.onDuty and ', on duty' or ''
+        local duty <const> = job.onDuty and locale('access.on_duty') or ''
 
-        return { allowed = true, reason = ('Matched job %s, grade %d%s'):format(job.name, job.grade, duty) }
+        return { allowed = true, reason = locale('access.job', job.name, job.grade, duty) }
     end
 
     local gang <const> = Players.gang(source)
 
     if matchOrg(gang, garage.access.gangs) then
-        return { allowed = true, reason = ('Matched gang %s, grade %d'):format(gang.name, gang.grade) }
+        return { allowed = true, reason = locale('access.gang', gang.name, gang.grade) }
     end
 
     for _, citizen in ipairs(garage.access.citizens) do
-        if citizen.citizenid == citizenid then return { allowed = true, reason = 'Listed by citizen ID' } end
+        if citizen.citizenid == citizenid then return { allowed = true, reason = locale('access.citizen') } end
     end
 
-    return { allowed = false, reason = 'No job, gang or citizen rule matches' }
+    return { allowed = false, reason = locale('access.no_match') }
 end
 
 ---@param source integer

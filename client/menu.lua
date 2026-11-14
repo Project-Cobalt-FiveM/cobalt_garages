@@ -75,7 +75,7 @@ end
 function Menu.store(garageId)
     local entity <const> = Vehicle.candidate()
 
-    if not entity then return { ok = false, message = 'Drive your vehicle to the garage first' } end
+    if not entity then return { ok = false, message = locale('garage.drive_closer') } end
 
     local payload <const> = Vehicle.capture(entity)
 

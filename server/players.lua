@@ -33,7 +33,7 @@ end
 ---@param source integer
 ---@return string
 function Players.name(source)
-    return exports.cobalt_core:GetName(source) or GetPlayerName(source) or 'Unknown'
+    return exports.cobalt_core:GetName(source) or GetPlayerName(source) or locale('access.unknown_player')
 end
 
 ---@param source integer
@@ -119,7 +119,11 @@ end
 ---@param kind? 'inform' | 'success' | 'error' | 'warning'
 ---@param title? string
 function Players.notify(source, description, kind, title)
-    Cobalt.Functions.Notify(source, { title = title or 'Garage', description = description, type = kind or 'inform' })
+    Cobalt.Functions.Notify(source, {
+        title = title or locale('garage.title'),
+        description = description,
+        type = kind or 'inform',
+    })
 end
 
 return Players

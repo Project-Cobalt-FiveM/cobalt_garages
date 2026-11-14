@@ -16,6 +16,8 @@ dependencies {
 
 shared_script '@ox_lib/init.lua'
 
+ox_libs { 'locale' }
+
 server_scripts {
     '@cobalt_mysql/lib/MySQL.lua',
     '@cobalt_core/server/migrationgate.lua',
@@ -30,6 +32,7 @@ files {
     'config.lua',
     'client/*.lua',
     'shared/*.lua',
+    'locales/*.json',
     '_nui/build/index.html',
     '_nui/build/assets/*',
 }

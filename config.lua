@@ -15,7 +15,6 @@
 
 ---@class GarageBlipCategory
 ---@field id integer
----@field label string
 
 ---@type GaragesConfig
 return {
@@ -42,9 +41,9 @@ return {
         ambulance = 'EMS',
     },
 
-    -- Map legend groups for the blips
+    -- Map legend groups for the blips, named by garage.blip_garage and garage.blip_impound in locales/en.json
     blipCategories = {
-        garage = { id = 13, label = 'Garages' },
-        impound = { id = 15, label = 'Impound' },
+        garage = { id = 13 }, -- legend category id for garages
+        impound = { id = 15 }, -- legend category id for impound lots
     },
 }

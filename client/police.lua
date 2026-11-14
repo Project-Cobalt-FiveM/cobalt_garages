@@ -10,23 +10,28 @@ end
 
 ---@param entity integer
 local function impound(entity)
-    local values <const> = core:InputDialog('Impound vehicle', {
-        { type = 'input', label = 'Reason', placeholder = 'Parked on the sidewalk', required = true },
+    local values <const> = core:InputDialog(locale('impound.dialog_title'), {
+        {
+            type = 'input',
+            label = locale('impound.reason'),
+            placeholder = locale('impound.reason_placeholder'),
+            required = true,
+        },
         {
             type = 'number',
-            label = 'Release fee',
+            label = locale('impound.fee'),
             default = config.impoundFee,
             min = 0,
             max = config.maxImpoundFee,
             prefix = '$',
         },
-        { type = 'number', label = 'Police hold (hours)', default = 0, min = 0, max = config.maxHoldHours },
-    }, { submitText = 'Impound' })
+        { type = 'number', label = locale('impound.hold'), default = 0, min = 0, max = config.maxHoldHours },
+    }, { submitText = locale('impound.submit') })
 
     if not values then return end
 
     local towed <const> = core:Progressbar({
-        label = 'Calling the tow truck',
+        label = locale('impound.progress'),
         duration = 5000,
         disable = { move = true, car = true, combat = true },
         anim = { scenario = 'WORLD_HUMAN_CLIPBOARD' },
@@ -41,16 +46,20 @@ local function impound(entity)
         holdHours = values[3] or 0,
     })
 
-    if not result then return core:Notify({ title = 'Impound', description = 'The impound did not answer', type = 'error' }) end
+    local title <const> = locale('impound.title')
 
-    core:Notify({ title = 'Impound', description = result.message, type = result.ok and 'success' or 'error' })
+    if not result then
+        return core:Notify({ title = title, description = locale('impound.no_answer'), type = 'error' })
+    end
+
+    core:Notify({ title = title, description = result.message, type = result.ok and 'success' or 'error' })
 end
 
 if GetResourceState('ox_target') == 'started' then
     exports.ox_target:addGlobalVehicle({
         {
             name = 'cobalt_garages:impound',
-            label = 'Impound vehicle',
+            label = locale('impound.target'),
             icon = 'fas fa-truck-pickup',
             distance = 3.0,
             canInteract = function(entity)

@@ -35,7 +35,13 @@ function Vehicle.describe(model)
     local label = GetLabelText(GetDisplayNameFromVehicleModel(hash))
 
     if not IsModelInCdimage(hash) then
-        described[model] = { label = model, class = 0, classLabel = 'Unknown', seats = 0, vehicleType = 'automobile' }
+        described[model] = {
+            label = model,
+            class = 0,
+            classLabel = locale('class.unknown'),
+            seats = 0,
+            vehicleType = 'automobile',
+        }
 
         return described[model]
     end
@@ -49,7 +55,7 @@ function Vehicle.describe(model)
     described[model] = {
         label = label,
         class = class,
-        classLabel = Garage.CLASSES[class] or 'Vehicle',
+        classLabel = Garage.CLASSES[class] or locale('class.generic'),
         seats = GetVehicleModelNumberOfSeats(hash),
         vehicleType = vehicleType(hash),
     }

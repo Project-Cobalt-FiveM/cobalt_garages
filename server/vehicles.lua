@@ -32,6 +32,8 @@ local CATEGORY_CLASSES <const> = {
 
 local TYPE_CLASSES <const> = { boat = 14, submarine = 14, heli = 15, plane = 16, train = 21 }
 
+local KIND_KEYS <const> = { boat = 'kind.boat', air = 'kind.air', car = 'kind.car' }
+
 local PLATE_SYNC_TIMEOUT_MS <const> = 5000
 
 local Vehicles <const> = {}
@@ -301,15 +303,13 @@ local function nearestFittingGarage(source, model, class)
 
     if not best then return '' end
 
-    return (' The nearest garage that takes it is %s, %d m away.'):format(best.label, math.floor(bestDistance))
+    return locale('garage.nearest', best.label, math.floor(bestDistance))
 end
 
 ---@param garage Garage
 ---@return string
 local function kindLabel(garage)
-    local labels <const> = { boat = 'boats', air = 'aircraft', car = 'land vehicles' }
-
-    return labels[garage.type] or 'other vehicles'
+    return locale(KIND_KEYS[garage.type] or 'kind.other')
 end
 
 ---@param source integer
@@ -318,13 +318,13 @@ end
 local function usableGarage(source, garageId)
     local garage <const> = type(garageId) == 'string' and Garages.get(garageId)
 
-    if not garage then return nil, 'That garage no longer exists' end
+    if not garage then return nil, locale('retrieve.garage_gone') end
 
     local access <const> = Access.check(source, garage)
 
     if not access.allowed then return nil, access.reason end
 
-    if not isNear(garage, playerCoords(source)) then return nil, 'You are too far from the garage' end
+    if not isNear(garage, playerCoords(source)) then return nil, locale('retrieve.too_far_garage') end
 
     return garage
 end
@@ -337,12 +337,12 @@ end
 local function storeFleet(source, garage, entity, plate)
     local entry <const> = out[plate]
 
-    if not Access.canUseFleet(source, garage) then return fail('You cannot store fleet vehicles here') end
-    if entry.garage ~= garage.id then return fail('Return this vehicle to the garage it came from') end
+    if not Access.canUseFleet(source, garage) then return fail(locale('store.fleet_denied')) end
+    if entry.garage ~= garage.id then return fail(locale('store.fleet_wrong_garage')) end
 
     removeEntity(plate, entity)
 
-    return done('Fleet vehicle stored')
+    return done(locale('store.fleet_stored'))
 end
 
 ---@param model string
@@ -374,69 +374,70 @@ function Vehicles.store(source, request)
     local entity <const> = NetworkGetEntityFromNetworkId(request.netId)
 
     if entity == 0 or not DoesEntityExist(entity) or GetEntityType(entity) ~= 2 then
-        return fail('There is no vehicle to store')
+        return fail(locale('store.no_vehicle'))
     end
 
-    if not isNear(garage, GetEntityCoords(entity)) then return fail('Bring the vehicle closer to the garage') end
-    if #(GetEntityCoords(entity) - playerCoords(source)) > 10.0 then return fail('You are too far from the vehicle') end
-    if occupied(entity, source) then return fail('Someone is still in the vehicle') end
+    if not isNear(garage, GetEntityCoords(entity)) then return fail(locale('store.bring_closer')) end
+    if #(GetEntityCoords(entity) - playerCoords(source)) > 10.0 then return fail(locale('store.too_far_vehicle')) end
+    if occupied(entity, source) then return fail(locale('store.occupied')) end
 
     local plate <const> = plateOf(entity)
 
-    if not plate then return fail('This vehicle has no plate') end
+    if not plate then return fail(locale('store.no_plate')) end
 
     if out[plate]?.fleet then return storeFleet(source, garage, entity, plate) end
     if out[plate] and out[plate].entity ~= entity and DoesEntityExist(out[plate].entity) then
-        return fail('This is not the vehicle registered to that plate')
+        return fail(locale('store.wrong_entity'))
     end
 
     local citizenid <const> = Players.citizenid(source) --[[@as string]]
     local row <const> = db.vehicle(plate)
     local name <const> = request.props.modelLabel or plate
 
-    local title <const> = ("Can't store %s here"):format(name)
+    local title <const> = locale('store.title', name)
 
-    if not row or row.citizenid ~= citizenid then return fail('You do not own this vehicle', title) end
-    if not Garage.holdsPlayerCars(garage) then return fail('This garage only holds its fleet', title) end
+    if not row or row.citizenid ~= citizenid then return fail(locale('retrieve.not_owner'), title) end
+    if not Garage.holdsPlayerCars(garage) then return fail(locale('store.fleet_only'), title) end
 
     local vehicleType <const> = GetVehicleType(entity) or 'automobile'
     local class <const> = classOf(row, vehicleType)
 
-    if not class then return fail('This model is missing from the vehicle list. Ask staff to add it.', title) end
+    if not class then return fail(locale('store.unlisted_model'), title) end
 
     if not Garage.classMatchesType(vehicleType, class) then
-        return fail('That vehicle class does not match the model')
+        return fail(locale('store.class_mismatch'))
     end
 
     if not Garage.fits(garage, row.model, class) then
-        local noun <const> = garage.type == 'boat' and 'boathouse' or 'garage'
+        local noun <const> = locale(garage.type == 'boat' and 'store.noun_boathouse' or 'store.noun_garage')
         local nearest <const> = nearestFittingGarage(source, row.model, class)
 
-        return fail(('This %s takes %s only.%s'):format(noun, kindLabel(garage), nearest), title)
+        return fail(locale('store.wrong_kind', noun, kindLabel(garage), nearest), title)
     end
 
     local rules <const> = garage.rules
 
-    if rules.capacity and db.countStored(garage.id) >= rules.capacity then return fail('This garage is full') end
+    if rules.capacity and db.countStored(garage.id) >= rules.capacity then return fail(locale('store.full')) end
     if rules.perPlayer and db.countStored(garage.id, citizenid) >= rules.perPlayer then
-        return fail(('You can keep %d vehicles here'):format(rules.perPlayer))
+        return fail(locale('store.per_player', rules.perPlayer))
     end
 
     local props <const> = storedProps(row.mods, request.props)
     props.plate = plate
 
     local condition <const> = conditionOf(entity, props, rules.repairOnStore)
-    local charge <const> = chargeFor(source, garage, rules.fees.store, rules.chargeFrom, ('Parking at %s'):format(garage.label))
+    local description <const> = locale('charge.parking', garage.label)
+    local charge <const> = chargeFor(source, garage, rules.fees.store, rules.chargeFrom, description)
 
     if not db.store(plate, citizenid, garage.id, condition, vehicleType, class, charge) then
-        if rules.fees.store > 0 then return fail(('You need $%d to park here'):format(rules.fees.store)) end
+        if rules.fees.store > 0 then return fail(locale('store.need_money', rules.fees.store)) end
 
-        return fail('The vehicle could not be stored')
+        return fail(locale('store.failed'))
     end
 
     removeEntity(plate, entity)
 
-    return done(('%s stored at %s'):format(name, garage.label))
+    return done(locale('store.stored', name, garage.label))
 end
 
 ---@param row OwnedVehicleRow
@@ -510,28 +511,29 @@ function Vehicles.takeOut(source, request)
     local citizenid <const> = Players.citizenid(source) --[[@as string]]
     local row <const> = db.vehicle(request.plate)
 
-    if not row or row.citizenid ~= citizenid then return fail('You do not own this vehicle') end
-    if row.state ~= 1 or row.garage ~= garage.id then return fail('That vehicle is not parked here') end
-    if isInWorld(row.plate) then return fail('That vehicle is already out') end
+    if not row or row.citizenid ~= citizenid then return fail(locale('retrieve.not_owner')) end
+    if row.state ~= 1 or row.garage ~= garage.id then return fail(locale('retrieve.not_here')) end
+    if isInWorld(row.plate) then return fail(locale('retrieve.already_out')) end
 
     local _, point = clearSpawn(garage)
 
-    if not point then return fail('Every bay is blocked. Move the cars out of the way.') end
+    if not point then return fail(locale('retrieve.bays_blocked')) end
 
     local rules <const> = garage.rules
-    local charge <const> = chargeFor(source, garage, rules.fees.takeOut, rules.chargeFrom, ('Retrieval at %s'):format(garage.label))
+    local description <const> = locale('charge.retrieval', garage.label)
+    local charge <const> = chargeFor(source, garage, rules.fees.takeOut, rules.chargeFrom, description)
 
     if not db.takeOut(row.plate, citizenid, garage.id, charge) then
-        return fail(('You need $%d to take it out'):format(rules.fees.takeOut))
+        return fail(locale('retrieve.need_money', rules.fees.takeOut))
     end
 
     if not spawnOwned(source, garage.id, row, request.vehicleType, point) then
         db.putBack(row.plate)
 
-        return fail('The vehicle could not be spawned')
+        return fail(locale('retrieve.spawn_failed'))
     end
 
-    return done('Vehicle spawned nearby')
+    return done(locale('retrieve.spawned'))
 end
 
 ---@param source integer
@@ -609,25 +611,25 @@ function Vehicles.takeFleet(source, request)
     local garage, reason = usableGarage(source, request.garageId)
 
     if not garage then return fail(reason --[[@as string]]) end
-    if not Access.canUseFleet(source, garage) then return fail('Your grade cannot take out fleet vehicles') end
+    if not Access.canUseFleet(source, garage) then return fail(locale('retrieve.fleet_grade')) end
 
     local vehicle = garage.fleet[request.index]
     local bought <const> = not vehicle and Vehicles.boughtFleet(source, garage)[request.index - #garage.fleet] or nil
 
     vehicle = vehicle or bought
 
-    if not vehicle then return fail('That fleet vehicle no longer exists') end
-    if bought and out[bought.plate] then return fail('That vehicle is already out') end
+    if not vehicle then return fail(locale('retrieve.fleet_gone')) end
+    if bought and out[bought.plate] then return fail(locale('retrieve.already_out')) end
 
     local citizenid <const> = Players.citizenid(source) --[[@as string]]
 
     if fleetCount(citizenid) >= config.fleetPerPlayer then
-        return fail(('You already have %d fleet vehicles out. Return one first.'):format(config.fleetPerPlayer))
+        return fail(locale('retrieve.fleet_limit', config.fleetPerPlayer))
     end
 
     local _, point = clearSpawn(garage)
 
-    if not point then return fail('Every bay is blocked. Move the cars out of the way.') end
+    if not point then return fail(locale('retrieve.bays_blocked')) end
 
     local membership <const> = garage.type == 'job' and Players.job(source) or Players.gang(source)
     local plate <const> = bought?.plate or fleetPlate(membership and config.fleetPlatePrefix[membership.name] or 'FLEET')
@@ -640,16 +642,24 @@ function Vehicles.takeFleet(source, request)
         fuel = 100,
     })
 
-    if not entity then return fail('The vehicle could not be spawned') end
+    if not entity then return fail(locale('retrieve.spawn_failed')) end
 
     track(entity, plate, { entity = entity, garage = garage.id, citizenid = citizenid, fleet = true })
 
-    return done(('%s spawned nearby'):format(vehicle.label))
+    return done(locale('retrieve.fleet_spawned', vehicle.label))
 end
 
 ---@class TransferRequest
 ---@field plate string
 ---@field to string
+
+---@param garage Garage
+---@return string
+local function kindKey(garage)
+    if garage.propertyId then return 'garage.kind_house' end
+
+    return garage.access.mode == 'everyone' and 'garage.kind_public' or 'garage.kind_private'
+end
 
 ---@param source integer
 ---@param row OwnedVehicleRow
@@ -677,12 +687,14 @@ function Vehicles.transferTargets(source, row)
         if garage.id ~= row.garage and Garage.holdsPlayerCars(garage) and garage.enabled then
             local usable <const> = Access.canUse(source, garage)
             local fits <const> = Garage.fits(garage, row.model, row.class or 0)
-            local reason <const> = not usable and 'Locked' or not fits and ('Takes %s only'):format(kindLabel(garage)) or nil
+            local reason <const> = not usable and locale('garage.locked')
+                or not fits and locale('garage.takes_only', kindLabel(garage))
+                or nil
 
             targets[#targets + 1] = {
                 id = garage.id,
                 label = garage.label,
-                kind = garage.propertyId and 'Your house' or garage.access.mode == 'everyone' and 'Public' or 'Private',
+                kind = locale(kindKey(garage)),
                 distance = math.floor(#(coords - vec(garage.interact.coords))),
                 fee = garage.rules.fees.transferIn,
                 available = usable and fits,
@@ -707,32 +719,32 @@ function Vehicles.transfer(source, request)
     local citizenid <const> = Players.citizenid(source) --[[@as string]]
     local row <const> = db.vehicle(request.plate)
 
-    if not row or row.citizenid ~= citizenid then return fail('You do not own this vehicle') end
-    if row.state ~= 1 or not row.garage then return fail('Only parked vehicles can move') end
+    if not row or row.citizenid ~= citizenid then return fail(locale('retrieve.not_owner')) end
+    if row.state ~= 1 or not row.garage then return fail(locale('transfer.parked_only')) end
 
     local from <const> = Garages.get(row.garage)
 
-    if from and not isNear(from, playerCoords(source)) then return fail('Stand at the garage the vehicle is parked in') end
+    if from and not isNear(from, playerCoords(source)) then return fail(locale('transfer.stand_at_garage')) end
 
     local target <const> = Garages.get(request.to)
 
     if not target or not target.enabled or not Garage.holdsPlayerCars(target) then
-        return fail('That garage does not take vehicles')
+        return fail(locale('transfer.no_vehicles'))
     end
 
-    if not Access.canUse(source, target) then return fail('You cannot use that garage') end
+    if not Access.canUse(source, target) then return fail(locale('transfer.no_access')) end
     if not Garage.fits(target, row.model, row.class or 0) then
-        return fail(('That garage takes %s only'):format(kindLabel(target)))
+        return fail(locale('transfer.wrong_kind', kindLabel(target)))
     end
 
     local fee <const> = target.rules.fees.transferIn
-    local charge <const> = chargeFor(source, target, fee, 'bank', ('Transfer to %s'):format(target.label))
+    local charge <const> = chargeFor(source, target, fee, 'bank', locale('charge.transfer', target.label))
 
     if not db.transfer(row.plate, citizenid, row.garage, target.id, charge) then
-        return fail(('You need $%d in the bank'):format(fee))
+        return fail(locale('transfer.need_money', fee))
     end
 
-    return done(('Vehicle moved to %s'):format(target.label))
+    return done(locale('transfer.moved', target.label))
 end
 
 ---@class ReleaseRequest
@@ -748,36 +760,36 @@ function Vehicles.release(source, request)
     local lot, reason = usableGarage(source, request.garageId)
 
     if not lot then return fail(reason --[[@as string]]) end
-    if lot.type ~= 'impound' then return fail('Vehicles are released at the impound lot') end
+    if lot.type ~= 'impound' then return fail(locale('release.lot_only')) end
 
     local citizenid <const> = Players.citizenid(source) --[[@as string]]
     local row <const> = db.vehicle(request.plate)
 
-    if not row or row.citizenid ~= citizenid then return fail('You do not own this vehicle') end
-    if row.state ~= 2 or row.garage ~= lot.id then return fail('That vehicle is not held here') end
+    if not row or row.citizenid ~= citizenid then return fail(locale('retrieve.not_owner')) end
+    if row.state ~= 2 or row.garage ~= lot.id then return fail(locale('release.not_here')) end
 
     if row.holdUntil and row.holdUntil > os.time() then
-        return fail(('This vehicle is on police hold until %s'):format(os.date('%H:%M', row.holdUntil)))
+        return fail(locale('release.on_hold', os.date('%H:%M', row.holdUntil)))
     end
 
     local _, point = clearSpawn(lot)
 
-    if not point then return fail('Every exit bay is blocked. Move the cars out of the way.') end
+    if not point then return fail(locale('release.bays_blocked')) end
 
     local account <const> = request.account == 'cash' and 'cash' or 'bank'
-    local charge <const> = chargeFor(source, lot, row.depotprice, account, ('Impound release at %s'):format(lot.label))
+    local charge <const> = chargeFor(source, lot, row.depotprice, account, locale('charge.release', lot.label))
 
     if not db.release(row.plate, citizenid, lot.id, row.depotprice, charge) then
-        return fail(('You need $%d in %s'):format(row.depotprice, account == 'cash' and 'cash' or 'the bank'))
+        return fail(locale(account == 'cash' and 'release.need_cash' or 'release.need_bank', row.depotprice))
     end
 
     if not spawnOwned(source, lot.id, row, request.vehicleType, point) then
-        db.impound(row.plate, { lot = lot.id, fee = 0, reason = 'Released, then failed to spawn', by = 'City' })
+        db.impound(row.plate, { lot = lot.id, fee = 0, reason = locale('impound.reason_spawn_failed'), by = 'City' })
 
-        return fail('The vehicle could not be spawned. It stays here, and the fee is now $0.')
+        return fail(locale('release.spawn_failed'))
     end
 
-    return done('Vehicle released and spawned nearby')
+    return done(locale('release.released'))
 end
 
 ---@param plate string
@@ -814,10 +826,10 @@ function Vehicles.impound(plate, entity, record)
 
     if owner then
         local lot <const> = Garages.get(record.lot)
-        local lotLabel <const> = lot?.label or 'the impound'
-        local message <const> = ('Your vehicle %s was taken to %s. %s'):format(plate, lotLabel, record.reason)
+        local lotLabel <const> = lot?.label or locale('impound.default_lot')
+        local message <const> = locale('impound.owner_notice', plate, lotLabel, record.reason)
 
-        Players.notify(owner, message, 'warning', 'Impound')
+        Players.notify(owner, message, 'warning', locale('impound.title'))
     end
 
     return impounded
@@ -857,7 +869,7 @@ AddEventHandler('entityRemoved', function(entity)
     untrack(plate)
 
     if entry and not entry.fleet then
-        db.impound(plate, impoundRecord('Towed after it was removed from the street'))
+        db.impound(plate, impoundRecord(locale('impound.reason_removed')))
     end
 end)
 
@@ -888,7 +900,7 @@ end)
 
 local function sweepOffline()
     local cutoff <const> = os.time() - math.floor(config.offlineHours * 3600)
-    local reason <const> = ('Left out while you were offline for %d hours'):format(config.offlineHours)
+    local reason <const> = locale('impound.reason_offline', config.offlineHours)
 
     for plate, entry in pairs(out) do
         local stale <const> = entry.droppedAt and entry.droppedAt <= cutoff
@@ -935,7 +947,7 @@ function Vehicles.reconcile()
         elseif garage and garage.rules.returnOnRestart then
             toReturn[#toReturn + 1] = row.plate
         else
-            db.impound(row.plate, impoundRecord('Left out when the city restarted'))
+            db.impound(row.plate, impoundRecord(locale('impound.reason_restart')))
             impounded += 1
         end
     end

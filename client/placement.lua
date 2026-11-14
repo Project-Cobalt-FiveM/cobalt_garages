@@ -34,10 +34,10 @@ local RAY_DISTANCE <const> = 60.0
 local COBALT <const> = { 80, 120, 215 }
 local WHITE <const> = { 250, 250, 250 }
 local PREVIEW_SIZES <const> = {
-    { label = 'Compact', model = `blista` },
-    { label = 'Sedan', model = `asea` },
-    { label = 'SUV', model = `baller` },
-    { label = 'Van', model = `speedo` },
+    { label = locale('placement.size_compact'), model = `blista` },
+    { label = locale('placement.size_sedan'), model = `asea` },
+    { label = locale('placement.size_suv'), model = `baller` },
+    { label = locale('placement.size_van'), model = `speedo` },
 }
 local CLOSE_SPAWN <const> = 3.0
 
@@ -151,7 +151,8 @@ end
 ---@return PlacementCheck[]
 local function checks(request, coords, ghost)
     local grounded <const> = onGround(coords)
-    local list <const> = { { ok = grounded, label = grounded and 'On the ground' or 'Off the ground. Press G to snap.' } }
+    local groundLabel <const> = locale(grounded and 'placement.on_ground' or 'placement.off_ground')
+    local list <const> = { { ok = grounded, label = groundLabel } }
 
     if request.kind ~= 'spawn' then return list end
 
@@ -161,14 +162,14 @@ local function checks(request, coords, ghost)
 
     list[#list + 1] = {
         ok = clear,
-        label = clear and ('Nothing within %.1f m'):format(radius) or ('A vehicle is within %.1f m'):format(radius),
+        label = locale(clear and 'placement.clear' or 'placement.blocked', radius),
     }
 
     for index, spawn in ipairs(request.spawns) do
         local distance <const> = #(coords - vector3(spawn.x, spawn.y, spawn.z))
 
         if index ~= request.index and distance < CLOSE_SPAWN then
-            list[#list + 1] = { ok = false, label = ('%.1f m from spawn point %d. Cars may touch.'):format(distance, index) }
+            list[#list + 1] = { ok = false, label = locale('placement.too_close', distance, index) }
         end
     end
 
@@ -178,10 +179,10 @@ end
 ---@param request PlacementRequest
 ---@return string
 local function title(request)
-    if request.kind == 'interact' then return 'Placing the interaction point' end
-    if request.kind == 'zone' then return 'Drawing the store zone' end
+    if request.kind == 'interact' then return locale('placement.interact') end
+    if request.kind == 'zone' then return locale('placement.zone') end
 
-    return ('Placing spawn point %d'):format(request.index)
+    return locale('placement.spawn', request.index)
 end
 
 ---@param request PlacementRequest

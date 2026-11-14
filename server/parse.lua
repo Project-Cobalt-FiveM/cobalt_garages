@@ -263,40 +263,40 @@ function Parse.validate(garage)
     local point <const> = garage.interact.coords
     local isOrg <const> = garage.type == 'job' or garage.type == 'gang'
 
-    if garage.label == '' then add('general', 'label', 'Give the garage a name players will see.') end
-    if garage.id == '' then add('general', 'id', 'The ID needs at least one letter or number.') end
+    if garage.label == '' then add('general', 'label', locale('creator.need_label')) end
+    if garage.id == '' then add('general', 'id', locale('creator.need_id')) end
     if garage.interact.mode == 'ped' and garage.interact.ped == '' then
-        add('general', 'ped', 'Pick a ped model, or open the garage another way.')
+        add('general', 'ped', locale('creator.need_ped'))
     end
 
     if garage.type == 'house' and not garage.propertyId then
-        add('general', 'propertyId', 'Enter the property ID this garage belongs to.')
+        add('general', 'propertyId', locale('creator.need_property'))
     end
 
     if point.x == 0 and point.y == 0 then
-        add('location', 'interact', 'Place the interaction point. Players have nowhere to open this garage.')
+        add('location', 'interact', locale('creator.need_interact'))
     end
 
-    if #garage.spawns == 0 then add('location', 'spawns', 'Add at least one spawn point.') end
+    if #garage.spawns == 0 then add('location', 'spawns', locale('creator.need_spawn')) end
 
     if garage.zone.kind == 'poly' and #garage.zone.points < 3 then
-        add('location', 'zone', 'A polygon needs at least 3 points. Add one more, or set the zone to None.')
+        add('location', 'zone', locale('creator.need_polygon'))
     end
 
     if garage.type == 'job' and #garage.access.jobs == 0 then
-        add('access', 'jobs', 'Add the job whose members use this garage.')
+        add('access', 'jobs', locale('creator.need_job'))
     end
 
     if garage.type == 'gang' and #garage.access.gangs == 0 then
-        add('access', 'gangs', 'Add the gang whose members use this garage.')
+        add('access', 'gangs', locale('creator.need_gang'))
     end
 
     if isOrg and garage.owners ~= 'player' and #garage.fleet == 0 then
-        add('rules', 'fleet', 'Add a fleet vehicle, or let members park their own cars.')
+        add('rules', 'fleet', locale('creator.need_fleet'))
     end
 
     if garage.type ~= 'impound' and #garage.rules.classes == 0 and #garage.rules.allowModels == 0 then
-        add('rules', 'classes', 'Tick at least one vehicle class.')
+        add('rules', 'classes', locale('creator.need_class'))
     end
 
     return errors

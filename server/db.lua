@@ -26,48 +26,39 @@
 local db <const> = {}
 
 local VEHICLE_COLUMNS <const> = [[
-    SELECT pv.plate, pv.citizenid, COALESCE(pv.vehicle, pv.hash) AS model, pv.garage, pv.state, pv.fuel, pv.engine,
-        pv.body, pv.depotprice, pv.drivingdistance AS mileage, pv.mods, gv.vehicle_type AS vehicleType, gv.class,
-        UNIX_TIMESTAMP(gv.parked_at) AS parkedAt, UNIX_TIMESTAMP(gv.impounded_at) AS impoundedAt,
-        gv.impound_reason AS impoundReason, UNIX_TIMESTAMP(gv.hold_until) AS holdUntil
-    FROM player_vehicles pv
-    LEFT JOIN garage_vehicles gv ON gv.plate = pv.plate
+    SELECT plate, citizenid, COALESCE(vehicle, hash) AS model, garage, state, fuel, engine, body, depotprice,
+        drivingdistance AS mileage, mods, vehicle_type AS vehicleType, class, UNIX_TIMESTAMP(parked_at) AS parkedAt, UNIX_TIMESTAMP(impounded_at) AS impoundedAt,
+        impound_reason AS impoundReason, UNIX_TIMESTAMP(hold_until) AS holdUntil
+    FROM player_vehicles
 ]]
 
-local LIST_OWNED <const> = VEHICLE_COLUMNS .. ' WHERE pv.citizenid = ? ORDER BY pv.id LIMIT 100'
-local GET_VEHICLE <const> = VEHICLE_COLUMNS .. ' WHERE pv.plate = ? LIMIT 1'
+local LIST_OWNED <const> = VEHICLE_COLUMNS .. ' WHERE citizenid = ? ORDER BY id LIMIT 100'
+local GET_VEHICLE <const> = VEHICLE_COLUMNS .. ' WHERE plate = ? LIMIT 1'
 local LIST_OUT <const> = 'SELECT plate, citizenid, garage FROM player_vehicles WHERE state = 0 ORDER BY id LIMIT 5000'
 
 local STORE <const> = [[
-    UPDATE player_vehicles SET state = 1, garage = ?, fuel = ?, engine = ?, body = ?, mods = ?, depotprice = 0
+    UPDATE player_vehicles SET state = 1, garage = ?, fuel = ?, engine = ?, body = ?, mods = ?, depotprice = 0,
+        vehicle_type = ?, class = ?, parked_at = NOW(), impounded_at = NULL, impound_reason = NULL,
+        impounded_by = NULL, hold_until = NULL
     WHERE plate = ? AND citizenid = ? AND state <> 2
-]]
-
-local TRACK <const> = [[
-    INSERT INTO garage_vehicles (plate, vehicle_type, class, parked_at) VALUES (?, ?, ?, NOW())
-    ON DUPLICATE KEY UPDATE vehicle_type = VALUES(vehicle_type), class = VALUES(class), parked_at = NOW(),
-        impounded_at = NULL, impound_reason = NULL, impounded_by = NULL, hold_until = NULL
 ]]
 
 local TAKE_OUT <const> = 'UPDATE player_vehicles SET state = 0 WHERE plate = ? AND citizenid = ? AND state = 1 AND garage = ?'
 local PUT_BACK <const> = 'UPDATE player_vehicles SET state = 1 WHERE plate = ? AND state = 0'
 local TRANSFER <const> = 'UPDATE player_vehicles SET garage = ? WHERE plate = ? AND citizenid = ? AND state = 1 AND garage = ?'
 
-local IMPOUND <const> = 'UPDATE player_vehicles SET state = 2, garage = ?, depotprice = ? WHERE plate = ? AND state <> 2'
-local IMPOUND_CONDITION <const> = 'UPDATE player_vehicles SET fuel = ?, engine = ?, body = ?, mods = ? WHERE plate = ?'
-
-local RECORD_IMPOUND <const> = [[
-    INSERT INTO garage_vehicles (plate, impounded_at, impound_reason, impounded_by, hold_until)
-    VALUES (?, NOW(), ?, ?, FROM_UNIXTIME(?))
-    ON DUPLICATE KEY UPDATE impounded_at = NOW(), impound_reason = VALUES(impound_reason),
-        impounded_by = VALUES(impounded_by), hold_until = VALUES(hold_until), parked_at = NULL
+local IMPOUND <const> = [[
+    UPDATE player_vehicles SET state = 2, garage = ?, depotprice = ?, impounded_at = NOW(), impound_reason = ?,
+        impounded_by = ?, hold_until = FROM_UNIXTIME(?), parked_at = NULL
+    WHERE plate = ? AND state <> 2
 ]]
 
+local IMPOUND_CONDITION <const> = 'UPDATE player_vehicles SET fuel = ?, engine = ?, body = ?, mods = ? WHERE plate = ?'
+
 local RELEASE <const> = [[
-    UPDATE player_vehicles pv LEFT JOIN garage_vehicles gv ON gv.plate = pv.plate
-    SET pv.state = 0, pv.depotprice = 0
-    WHERE pv.plate = ? AND pv.citizenid = ? AND pv.state = 2 AND pv.garage = ? AND pv.depotprice = ?
-        AND (gv.hold_until IS NULL OR gv.hold_until <= NOW())
+    UPDATE player_vehicles SET state = 0, depotprice = 0
+    WHERE plate = ? AND citizenid = ? AND state = 2 AND garage = ? AND depotprice = ?
+        AND (hold_until IS NULL OR hold_until <= NOW())
 ]]
 
 local COUNT_STORED <const> = 'SELECT COUNT(*) FROM player_vehicles WHERE garage = ? AND state = 1'
@@ -79,10 +70,9 @@ local MOVE_TO_IMPOUND <const> = [[
 ]]
 
 local TOTALS <const> = [[
-    SELECT COALESCE(SUM(pv.state = 1), 0) AS stored, COALESCE(SUM(pv.state = 2), 0) AS impounded,
-        COALESCE(SUM(pv.state = 2 AND gv.hold_until > NOW()), 0) AS held, COUNT(DISTINCT pv.citizenid) AS owners
-    FROM player_vehicles pv
-    LEFT JOIN garage_vehicles gv ON gv.plate = pv.plate
+    SELECT COALESCE(SUM(state = 1), 0) AS stored, COALESCE(SUM(state = 2), 0) AS impounded,
+        COALESCE(SUM(state = 2 AND hold_until > NOW()), 0) AS held, COUNT(DISTINCT citizenid) AS owners
+    FROM player_vehicles
 ]]
 
 local LIST_GARAGES <const> = [[
@@ -133,11 +123,11 @@ function db.store(plate, citizenid, garageId, condition, vehicleType, class, cha
     local props <const> = json.encode(condition.props)
 
     return MySQL.startTransaction(function(query)
-        local stored <const> = query(STORE, { garageId, condition.fuel, condition.engine, condition.body, props, plate, citizenid })
+        local stored <const> = query(STORE, {
+            garageId, condition.fuel, condition.engine, condition.body, props, vehicleType, class, plate, citizenid,
+        })
 
         if stored.affectedRows ~= 1 then return false end
-
-        query(TRACK, { plate, vehicleType, class })
 
         return settle(charge)
     end) == true
@@ -197,9 +187,11 @@ end
 ---@return boolean
 function db.impound(plate, record)
     return MySQL.startTransaction(function(query)
-        if query(IMPOUND, { record.lot, record.fee, plate }).affectedRows ~= 1 then return false end
+        local impounded <const> = query(IMPOUND, {
+            record.lot, record.fee, record.reason, record.by, record.holdUntil, plate,
+        })
 
-        query(RECORD_IMPOUND, { plate, record.reason, record.by, record.holdUntil })
+        if impounded.affectedRows ~= 1 then return false end
 
         local condition <const> = record.condition
 

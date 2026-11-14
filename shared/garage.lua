@@ -96,11 +96,10 @@ local Garage <const> = {}
 
 Garage.TYPES = { 'car', 'boat', 'air', 'job', 'gang', 'house', 'impound' }
 
-Garage.CLASSES = {
-    [0] = 'Compacts', 'Sedans', 'SUVs', 'Coupes', 'Muscle', 'Sports classics', 'Sports', 'Super', 'Motorcycles',
-    'Off-road', 'Industrial', 'Utility', 'Vans', 'Cycles', 'Boats', 'Helicopters', 'Planes', 'Service', 'Emergency',
-    'Military', 'Commercial', 'Trains', 'Open wheel',
-}
+---@type table<integer, string>
+Garage.CLASSES = {}
+
+for class = 0, 22 do Garage.CLASSES[class] = locale(('class.%d'):format(class)) end
 
 local LAND <const> = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 17, 18, 19, 20, 22 }
 
