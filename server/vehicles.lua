@@ -927,7 +927,6 @@ end
 function Vehicles.reconcile()
     local world <const> = worldPlates()
     local now <const> = os.time()
-    local impounded, kept = 0, 0
     local toReturn <const> = {}
 
     for _, row in ipairs(db.outVehicles()) do
@@ -943,18 +942,14 @@ function Vehicles.reconcile()
                 fleet = false,
                 droppedAt = not online and now or nil,
             })
-            kept += 1
         elseif garage and garage.rules.returnOnRestart then
             toReturn[#toReturn + 1] = row.plate
         else
             db.impound(row.plate, impoundRecord(locale('impound.reason_restart')))
-            impounded += 1
         end
     end
 
-    local returned <const> = db.putBackAll(toReturn)
-
-    lib.print.info(('%d vehicles still out, %d returned to their garage, %d impounded'):format(kept, returned, impounded))
+    db.putBackAll(toReturn)
 end
 
 ---@param garage Garage
