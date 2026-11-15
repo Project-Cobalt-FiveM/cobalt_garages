@@ -25,7 +25,7 @@ end
 ---@param citizenid string
 ---@return integer?
 function Players.sourceOf(citizenid)
-    local player <const> = Cobalt.Functions.GetPlayerByCitizenId(citizenid)
+    local player <const> = Cobalt.Functions.GetPlayerByCitizenId(citizenid, true)
 
     return player and player.PlayerData.source
 end
